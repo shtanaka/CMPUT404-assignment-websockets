@@ -57,3 +57,4 @@ Contributors
 
 * Mark Galloway
 * Abram Hindle
+* Edson Gustavo S Silva
