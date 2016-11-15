@@ -35,6 +35,7 @@ var W = canvas.width  = window.innerWidth-6;
 var H = canvas.height = window.innerHeight-50;
 var wscounter = 0;
 var socket;
+var myColor = generateColor();
 
 function debug(str) {
     var debugDiv = document.getElementById('debug');
@@ -57,6 +58,10 @@ function drawCircle(context,entity) {
         arc(x, y, (entity["radius"])?entity["radius"]:50, 0, 2.0 * Math.PI, false);  
         stroke();                                
     }
+}
+
+function generateColor() {
+    return '#'+(0x1000000+(Math.random())*0xffffff).toString(16).substr(1,6);
 }
 
 function prepEntity(entity) {
@@ -123,9 +128,12 @@ function getPosition(e) {
 
 function addEntity(entity, data) {
     world[entity] = data;
-    drawNextFrame(); // (but should we?)
-    //XXX: Send a XHTML Request that updates the entity you just modified!
+    drawNextFrame();
+    req = {};
+    req[entity] = data;
+    socket.send(JSON.stringify(req));
 }
+
 var counter = 0;
 function addEntityWithoutName(data) {
     var name = "X"+(counter++)%100;
@@ -230,6 +238,7 @@ mouse = (function() {
 
 // Add the application specific mouse listeners!
 //XXX: TODO Make these prettier!
+
 mouse.mousedowners.push(function(x,y,clicked,e) {
     addEntityWithoutName({'x':x,'y':y,'colour':'blue'});
 });
@@ -239,7 +248,7 @@ mouse.mouseuppers.push(function(x,y,clicked,e) {
 });
 
 mouse.mousedraggers.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'green',
+    addEntityWithoutName({'x':x,'y':y,'colour':myColor,
                           'radius':10});
 });
 
@@ -253,7 +262,23 @@ function wsSetup() {
     var url = "ws://"+host+"/subscribe";   
     socket = new WebSocket(url);
     socket.onopen = function() {
-        //XXX: TODO What are you going to do here?
+        var xhr = new XMLHttpRequest();
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState == 4) {
+                try{
+                    if (xhr.status==200) {
+                        response = JSON.parse(xhr.responseText);
+                        world = response;
+                        drawFrame();
+                    }
+                } catch(e) { 
+                    alert('Error: ' + e.name);
+                }
+            }
+        }
+        xhr.open("GET", "/world");
+        xhr.setRequestHeader("Accept", 'application/json');
+        xhr.send(null);
     };
     socket.onerror = function(msg) {
         debug("WebSocket Error:" + msg.data);
@@ -261,7 +286,11 @@ function wsSetup() {
     socket.onmessage = function(msg) {  
         try {
             debug("WebSocket Recv:" + msg.data);
-            //XXX: TODO What are you going to do here?            
+            data = JSON.parse(msg.data);
+            for (i in data) {
+                world[i] = data[i];
+            }
+            drawNextFrame();
         } catch (e) {
             alert("socket on message: " + e);
         }
@@ -274,7 +303,7 @@ wsSetup();
 
 
 // 30 frames per second
-setInterval( update, 1000/30.0);
+setInterval( update, 1000/60.0);
 
 
     </script>
